@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdlib.h>
 #include <string.h>
 #include <windows.h>
 
@@ -6,11 +7,45 @@ using namespace std;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK LowLevelKeyboardProc(int, WPARAM, LPARAM);
+BOOL CALLBACK MonitorEnumProc(HMONITOR, HDC, LPRECT, LPARAM);
 
 bool prevDevice = false; // 前回の入力デバイス
 bool first = true;       // 最初のマウス入力か
 int originX, originY;    // 最後のマウス座標
 HHOOK hMyHook;           // キーフック
+
+// ディスプレイ情報
+struct MONITOR {
+    HMONITOR hMonitor;
+    RECT rect;
+};
+
+// マルチディスプレイ情報
+struct MONITORS {
+    int count = 0;
+    MONITOR* monitors;
+};
+
+// ディスプレイソート用比較関数
+int cmpdisp(const void *m1, const void *m2) {
+    MONITOR* monitor1 = (MONITOR*)m1;
+    MONITOR* monitor2 = (MONITOR*)m2;
+
+    // 右→左, 上→下に移動
+    if (monitor1->rect.left > monitor2->rect.left) {
+        return -1;
+    } else if (monitor1->rect.left < monitor2->rect.left) {
+        return 1;
+    } else {
+        if (monitor1->rect.top > monitor2->rect.top) {
+            return 1;
+        } else if (monitor1->rect.top < monitor2->rect.top) {
+            return -1;
+        } else {
+            return 0;
+        }
+    }
+}
 
 // メイン関数
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
@@ -125,30 +160,43 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     KBDLLHOOKSTRUCT* kbs = (KBDLLHOOKSTRUCT*)lParam;
 
     switch (kbs->vkCode) {
-        // Insert→Win+Esc変換
+        // マルチディスプレイ間ウィンドウ移動
         case VK_INSERT: {
             if (wParam != WM_KEYDOWN)
                 break;
 
-            // Win+Escのキー入力を設定
-            INPUT inputWinEsc[4] = {};
+            // 各ディスプレイの座標を取得
+            int n = GetSystemMetrics(SM_CMONITORS);
+            MONITORS monitors = {0, new MONITOR[n]};
+            EnumDisplayMonitors(NULL, NULL, (MONITORENUMPROC)MonitorEnumProc, (LPARAM)&monitors);
 
-            inputWinEsc[0].type = INPUT_KEYBOARD;
-            inputWinEsc[0].ki.wVk = VK_LWIN;
+            // 座標順になるようにソート
+            qsort(monitors.monitors, n, sizeof(MONITOR), cmpdisp);
 
-            inputWinEsc[1].type = INPUT_KEYBOARD;
-            inputWinEsc[1].ki.wVk = VK_ESCAPE;
+            // 現在のディスプレイを取得
+            HWND hWnd = GetForegroundWindow();
+            HMONITOR hCurrentMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
 
-            inputWinEsc[2].type = INPUT_KEYBOARD;
-            inputWinEsc[2].ki.wVk = VK_ESCAPE;
-            inputWinEsc[2].ki.dwFlags = KEYEVENTF_KEYUP;
+            // ウィンドウの座標を取得
+            RECT rcWindow;
+            GetWindowRect(hWnd, &rcWindow);
 
-            inputWinEsc[3].type = INPUT_KEYBOARD;
-            inputWinEsc[3].ki.wVk = VK_LWIN;
-            inputWinEsc[3].ki.dwFlags = KEYEVENTF_KEYUP;
+            for (int i = 0; i < n; i++) {
+                MONITOR *curMonitor = &monitors.monitors[i];
+                MONITOR *nextMonitor = &monitors.monitors[(i + 1) % n];
 
-            // キーを送信
-            SendInput(ARRAYSIZE(inputWinEsc), inputWinEsc, sizeof(INPUT));
+                if (curMonitor->hMonitor == hCurrentMonitor) {
+                    // 次のウィンドウの座標を取得
+                    int x = nextMonitor->rect.left + rcWindow.left - curMonitor->rect.left;
+                    int y = nextMonitor->rect.top + rcWindow.top - curMonitor->rect.top;
+                    int w = rcWindow.right - rcWindow.left;
+                    int h = rcWindow.bottom - rcWindow.top;
+
+                    // 次のディスプレイへ移動
+                    MoveWindow(hWnd, x, y, w, h, TRUE);
+                    break;
+                }
+            }
 
             return -1;
         }
@@ -169,4 +217,16 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     }
 
     return CallNextHookEx(hMyHook, nCode, wParam, lParam);
+}
+
+// マルチディスプレイ情報取得
+BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdc, LPRECT lprcMonitor, LPARAM dwData) {
+    MONITORS* monitors = (MONITORS*)dwData;
+
+    // ディスプレイ情報を格納
+    monitors->monitors[monitors->count].hMonitor = hMonitor;
+    monitors->monitors[monitors->count].rect = *lprcMonitor;
+    monitors->count++;
+
+    return TRUE;
 }
