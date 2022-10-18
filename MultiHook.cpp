@@ -177,6 +177,11 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             HWND hWnd = GetForegroundWindow();
             HMONITOR hCurrentMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
 
+            // 最大化されていたら解除
+            bool isZoomed = IsZoomed(hWnd);
+            if (isZoomed)
+                ShowWindow(hWnd, SW_RESTORE);
+
             // ウィンドウの座標を取得
             RECT rcWindow;
             GetWindowRect(hWnd, &rcWindow);
@@ -194,6 +199,11 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
                     // 次のディスプレイへ移動
                     MoveWindow(hWnd, x, y, w, h, TRUE);
+
+                    // 最大化を元に戻す
+                    if (isZoomed)
+                        ShowWindow(hWnd, SW_MAXIMIZE);
+
                     break;
                 }
             }
