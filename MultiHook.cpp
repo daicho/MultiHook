@@ -165,8 +165,12 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             if (wParam != WM_KEYDOWN)
                 break;
 
-            // 各ディスプレイの座標を取得
+            // ディスプレイが1枚だったら何もしない
             int n = GetSystemMetrics(SM_CMONITORS);
+            if (n <= 1)
+                return -1;
+
+            // 各ディスプレイの座標を取得
             MONITORS monitors = {0, new MONITOR[n]};
             EnumDisplayMonitors(NULL, NULL, (MONITORENUMPROC)MonitorEnumProc, (LPARAM)&monitors);
 
