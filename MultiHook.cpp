@@ -215,6 +215,52 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             return -1;
         }
 
+        // ウィンドウ分割
+        case VK_HOME:
+        case VK_END:
+        case VK_PRIOR:
+        case VK_NEXT: {
+            if (wParam != WM_KEYDOWN)
+                break;
+
+            // 現在のディスプレイを取得
+            HWND hWnd = GetForegroundWindow();
+            HMONITOR hCurrentMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+
+            // ディスプレイ情報を取得
+            MONITORINFO monitorInfo;
+            monitorInfo.cbSize = sizeof(monitorInfo);
+            GetMonitorInfo(hCurrentMonitor, &monitorInfo);
+
+            int x = monitorInfo.rcWork.left;
+            int y = monitorInfo.rcWork.top;
+            int w = monitorInfo.rcWork.right - x;
+            int h = monitorInfo.rcWork.bottom - y;
+
+            // 最大化
+            ShowWindow(hWnd, SW_MAXIMIZE);
+
+            if (w >= h) {
+                // 左分割
+                if (kbs->vkCode == VK_HOME || kbs->vkCode == VK_END)
+                    MoveWindow(hWnd, x, y, w / 2, h, TRUE);
+
+                // 右分割
+                if (kbs->vkCode == VK_PRIOR || kbs->vkCode == VK_NEXT)
+                    MoveWindow(hWnd, x + w / 2, y, w / 2, h, TRUE);
+            } else {
+                // 上分割
+                if (kbs->vkCode == VK_HOME || kbs->vkCode == VK_PRIOR)
+                    MoveWindow(hWnd, x, y, w, h / 2, TRUE);
+
+                // 下分割
+                if (kbs->vkCode == VK_END || kbs->vkCode == VK_NEXT)
+                    MoveWindow(hWnd, x, y + h / 2, w, h / 2, TRUE);
+            }
+
+            return -1;
+        }
+
         // Windowsキー無効化
         case VK_LWIN:
         case VK_RWIN: {
