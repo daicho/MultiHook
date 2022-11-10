@@ -237,26 +237,35 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             int w = monitorInfo.rcWork.right - x;
             int h = monitorInfo.rcWork.bottom - y;
 
-            // 最大化
-            ShowWindow(hWnd, SW_MAXIMIZE);
+            // 最大化されていたら解除
+            bool isZoomed = IsZoomed(hWnd);
+            if (isZoomed)
+                ShowWindow(hWnd, SW_RESTORE);
+
+            // 微調整用
+            int t = 7;
 
             if (w >= h) {
                 // 左分割
                 if (kbs->vkCode == VK_HOME || kbs->vkCode == VK_END)
-                    MoveWindow(hWnd, x, y, w / 2, h, TRUE);
+                    MoveWindow(hWnd, x - t, y, w / 2 + t * 2, h + t, TRUE);
 
                 // 右分割
                 if (kbs->vkCode == VK_PRIOR || kbs->vkCode == VK_NEXT)
-                    MoveWindow(hWnd, x + w / 2, y, w / 2, h, TRUE);
+                    MoveWindow(hWnd, x + w / 2 - t, y, w / 2 + t * 2, h + t, TRUE);
             } else {
                 // 上分割
                 if (kbs->vkCode == VK_HOME || kbs->vkCode == VK_PRIOR)
-                    MoveWindow(hWnd, x, y, w, h / 2, TRUE);
+                    MoveWindow(hWnd, x - t, y, w + t * 2, h / 2 + t, TRUE);
 
                 // 下分割
                 if (kbs->vkCode == VK_END || kbs->vkCode == VK_NEXT)
-                    MoveWindow(hWnd, x, y + h / 2, w, h / 2, TRUE);
+                    MoveWindow(hWnd, x - t, y + h / 2, w + t * 2, h / 2 + t, TRUE);
             }
+
+            // ウィンドウの座標を取得
+            RECT rcWindow;
+            GetWindowRect(hWnd, &rcWindow);
 
             return -1;
         }
