@@ -215,61 +215,6 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             return -1;
         }
 
-        // ウィンドウ分割
-        case VK_HOME:
-        case VK_END:
-        case VK_PRIOR:
-        case VK_NEXT: {
-            if (wParam != WM_KEYDOWN)
-                break;
-
-            // 現在のディスプレイを取得
-            HWND hWnd = GetForegroundWindow();
-            HMONITOR hCurrentMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
-
-            // ディスプレイ情報を取得
-            MONITORINFO monitorInfo;
-            monitorInfo.cbSize = sizeof(monitorInfo);
-            GetMonitorInfo(hCurrentMonitor, &monitorInfo);
-
-            int x = monitorInfo.rcWork.left;
-            int y = monitorInfo.rcWork.top;
-            int w = monitorInfo.rcWork.right - x;
-            int h = monitorInfo.rcWork.bottom - y;
-
-            // 最大化されていたら解除
-            bool isZoomed = IsZoomed(hWnd);
-            if (isZoomed)
-                ShowWindow(hWnd, SW_RESTORE);
-
-            // 微調整用
-            int t = 7;
-
-            if (w >= h) {
-                // 左分割
-                if (kbs->vkCode == VK_HOME || kbs->vkCode == VK_END)
-                    MoveWindow(hWnd, x - t, y, w / 2 + t * 2, h + t, TRUE);
-
-                // 右分割
-                if (kbs->vkCode == VK_PRIOR || kbs->vkCode == VK_NEXT)
-                    MoveWindow(hWnd, x + w / 2 - t, y, w / 2 + t * 2, h + t, TRUE);
-            } else {
-                // 上分割
-                if (kbs->vkCode == VK_HOME || kbs->vkCode == VK_PRIOR)
-                    MoveWindow(hWnd, x - t, y, w + t * 2, h / 2 + t, TRUE);
-
-                // 下分割
-                if (kbs->vkCode == VK_END || kbs->vkCode == VK_NEXT)
-                    MoveWindow(hWnd, x - t, y + h / 2, w + t * 2, h / 2 + t, TRUE);
-            }
-
-            // ウィンドウの座標を取得
-            RECT rcWindow;
-            GetWindowRect(hWnd, &rcWindow);
-
-            return -1;
-        }
-
         // Windowsキー無効化
         case VK_LWIN:
         case VK_RWIN: {
