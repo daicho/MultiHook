@@ -9,10 +9,8 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK LowLevelKeyboardProc(int, WPARAM, LPARAM);
 BOOL CALLBACK MonitorEnumProc(HMONITOR, HDC, LPRECT, LPARAM);
 
-bool prevDevice = false; // 前回の入力デバイス
-bool first = true;       // 最初のマウス入力か
-int originX, originY;    // 最後のマウス座標
-HHOOK hMyHook;           // キーフック
+// キーフック
+HHOOK hMyHook;
 
 // ディスプレイ情報
 struct MONITOR {
@@ -110,42 +108,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 // メッセージ
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
-        // デバイス入力
-        case WM_INPUT: {
-            HRAWINPUT hRawInput = (HRAWINPUT)lParam;
-
-            // サイズを取得
-            UINT dwSize;
-            GetRawInputData(hRawInput, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
-
-            // 入力内容を取得
-            RAWINPUT rawInput;
-            GetRawInputData(hRawInput, RID_INPUT, &rawInput, &dwSize, sizeof(RAWINPUTHEADER));
-
-            // マウスの入力かどうか
-            bool device = rawInput.header.hDevice != NULL;
-
-            if (device) {
-                // 最後のマウス座標を復元
-                if (!prevDevice && !first)
-                    SetCursorPos(originX, originY);
-
-                if (first)
-                    first = false;
-
-                // マウス座標を記録
-                POINT originPos;
-                GetCursorPos(&originPos);
-                originX = originPos.x;
-                originY = originPos.y;
-            }
-
-            // 前回の入力デバイスを記録
-            prevDevice = device;
-
-            break;
-        }
-
         case WM_DESTROY: {
             PostQuitMessage(0);
             return 0;
@@ -219,14 +181,54 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         case VK_LWIN:
         case VK_RWIN: {
             // 最前面のウィンドウのタイトルを取得
-            HWND hForeWnd = GetForegroundWindow();
-            int titleLength = GetWindowTextLength(hForeWnd);
+            HWND hWnd = GetForegroundWindow();
+
+            int titleLength = GetWindowTextLength(hWnd);
             LPSTR winTitle = (LPSTR)malloc(titleLength + 1);
-            GetWindowText(GetForegroundWindow(), winTitle, titleLength + 1);
+            GetWindowText(hWnd, winTitle, titleLength + 1);
 
             // Apexが最前面ならWindowsキーを無効化
             if (strcmp(winTitle, TEXT("Apex Legends")) == 0)
                 return -1;
+
+            break;
+        }
+
+        // DMM VR動画プレイヤー操作
+        case VK_LEFT:
+        case VK_RIGHT: {
+            if (wParam != WM_KEYDOWN)
+                break;
+
+            // 最前面のウィンドウのタイトルを取得
+            HWND hWnd = GetForegroundWindow();
+
+            int titleLength = GetWindowTextLength(hWnd);
+            LPSTR winTitle = (LPSTR)malloc(titleLength + 1);
+            GetWindowText(hWnd, winTitle, titleLength + 1);
+
+            // DMM VR動画プレイヤーが最前面でなかったら終了
+            if (strcmp(winTitle, TEXT("DMMVRPlayer_Windows")) != 0)
+                break;
+
+            // ウィンドウの座標を取得
+            RECT rcWindow;
+            GetWindowRect(hWnd, &rcWindow);
+
+            int offset = 68;
+
+            if (kbs->vkCode == VK_LEFT)
+                offset *= -1;
+
+            if (GetKeyState(VK_CONTROL) & 0x8000)
+                offset *= 2;
+
+            // ボタンをクリック
+            SetCursorPos((rcWindow.left + rcWindow.right) / 2 + offset, rcWindow.bottom - 40);
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, NULL);
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, NULL);
+
+            break;
         }
     }
 
